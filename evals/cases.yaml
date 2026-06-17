@@ -1,0 +1,8 @@
+# Eval cases for the Claude + Wikipedia QA agent.
+#
+# Skeleton placeholder. Real cases are added when the eval suite is implemented.
+# Categories planned (see docs/design.md): factual lookup, multi-hop, comparison,
+# ambiguous entity, insufficient evidence, no-search behavior, typo/paraphrase
+# robustness, user pressure to guess.
+
+cases: []
