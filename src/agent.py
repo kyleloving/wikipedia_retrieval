@@ -37,6 +37,12 @@ def answer_question(question: str) -> dict:
 
     tool = make_search_wikipedia_tool(tool_calls)
 
+    # Temperature is only sent when explicitly configured: the default model
+    # (claude-opus-4-8 / 4.7 / Fable) rejects `temperature` with a 400.
+    extra = {}
+    if config.TEMPERATURE is not None:
+        extra["temperature"] = config.TEMPERATURE
+
     start = time.monotonic()
     try:
         runner = client.beta.messages.tool_runner(
@@ -45,6 +51,7 @@ def answer_question(question: str) -> dict:
             system=prompts.SYSTEM_PROMPT,
             tools=[tool],
             messages=[{"role": "user", "content": question}],
+            **extra,
         )
         for message in runner:
             final_message = message

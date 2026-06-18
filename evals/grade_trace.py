@@ -103,6 +103,57 @@ def _term_present(term: str, text: str) -> bool:
     return re.search(r"(?<!\w)" + re.escape(term) + r"(?!\w)", text) is not None
 
 
+def _cited_matches_retrieved(cited: str, titles_norm: set, urls_blob: str) -> bool:
+    """Is a citation backed by a retrieved page? Lenient, so only clear
+    fabrications fail: exact title, URL slug, or parenthetical-disambiguator
+    overlap ('Mona Lisa' <-> 'Mona Lisa (painting)')."""
+    norm = _norm(cited)
+    if not norm:
+        return False
+    if norm in titles_norm:
+        return True
+    slug = norm.replace(" ", "_")
+    if slug and slug in urls_blob:
+        return True
+    # Tolerate disambiguators in either direction, but require a non-trivial stem.
+    for title in titles_norm:
+        if len(norm) >= 4 and (norm in title or title in norm):
+            return True
+    return False
+
+
+def _parse_cited_sources(answer: str) -> list:
+    """Page titles the answer lists under 'Sources used:'.
+
+    Returns [] for 'Sources used: none' or when nothing is listed. Collects only
+    the bullet titles between the 'Sources used:' header and the 'Search used:'
+    line.
+    """
+    cited = []
+    in_block = False
+    for line in answer.splitlines():
+        low = line.strip().lower()
+        if low.startswith("sources used:"):
+            in_block = True
+            rest = line.split(":", 1)[1].strip()
+            if rest and rest.lower() != "none":
+                cited.append(rest.lstrip("-*• ").strip())
+            continue
+        if in_block:
+            if low.startswith("search used:"):
+                break
+            if low == "":
+                continue
+            stripped = line.strip()
+            if stripped.startswith(("-", "*", "•")):
+                title = stripped.lstrip("-*• ").strip()
+                if title and title.lower() != "none":
+                    cited.append(title)
+            else:
+                break
+    return cited
+
+
 def _has_refusal_marker(text: str) -> bool:
     low = text.lower()
     return any(marker in low for marker in REFUSAL_MARKERS)
@@ -127,20 +178,42 @@ def grade_trace(trace: dict, case: dict) -> dict:
     else:
         search_decision_correct = search_used == bool(should_search)
 
-    # 2. expected_page_hit — an expected page retrieved (title or URL-slug match).
+    # 2. expected_page_hit — were the necessary pages retrieved? Three modes:
+    #   - required_page_groups: a list of OR-groups; every group must have >=1 hit
+    #     (e.g. a comparison must retrieve BOTH sides, not just one).
+    #   - min_distinct_pages: at least N distinct expected pages retrieved
+    #     (e.g. an ambiguous entity should surface >=2 senses).
+    #   - default: any one expected page suffices (evidence sufficiency).
+    # Matching is title- or URL-slug based (redirect-safe).
     expected_pages = case.get("expected_pages") or []
+    page_groups = case.get("required_page_groups")
+    min_distinct = case.get("min_distinct_pages")
     pages = _retrieved_pages(trace)
     retrieved_titles = [t for t, _ in pages if t]
-    if not expected_pages:
-        expected_page_hit = None
-        matched = []
-    else:
-        titles_norm = {_norm(t) for t in retrieved_titles}
-        urls_blob = " ".join(u.lower() for _, u in pages)
+    titles_norm = {_norm(t) for t in retrieved_titles}
+    urls_blob = " ".join(u.lower() for _, u in pages)
+
+    if page_groups:
+        groups_hit = [
+            [p for p in group if _page_matched(p, titles_norm, urls_blob)]
+            for group in page_groups
+        ]
+        matched = [p for hits in groups_hit for p in hits]
+        missing_groups = [g for g, hits in zip(page_groups, groups_hit) if not hits]
+        expected_page_hit = len(missing_groups) == 0
+    elif expected_pages:
         matched = [
             p for p in expected_pages if _page_matched(p, titles_norm, urls_blob)
         ]
-        expected_page_hit = len(matched) > 0
+        missing_groups = []
+        if min_distinct:
+            expected_page_hit = len(matched) >= min_distinct
+        else:
+            expected_page_hit = len(matched) > 0
+    else:
+        expected_page_hit = None
+        matched = []
+        missing_groups = []
 
     # 3. required_terms_present — all required terms appear (word-boundary).
     required = case.get("required_answer_terms") or []
@@ -171,6 +244,22 @@ def grade_trace(trace: dict, case: dict) -> dict:
     else:
         declined_when_unanswerable = None
 
+    # 7. cited_sources_retrieved — the v1 prompt makes the agent list "Sources
+    # used:". A deterministic grounding check: every cited page must actually
+    # have been retrieved (no fabricated citations). N/A when no search happened
+    # or the answer cited nothing ("Sources used: none").
+    cited_sources = _parse_cited_sources(answer)
+    if not search_used or not cited_sources:
+        cited_sources_retrieved = None
+        unretrieved_sources = []
+    else:
+        unretrieved_sources = [
+            c
+            for c in cited_sources
+            if not _cited_matches_retrieved(c, titles_norm, urls_blob)
+        ]
+        cited_sources_retrieved = len(unretrieved_sources) == 0
+
     checks = {
         "search_decision_correct": {
             "pass": search_decision_correct,
@@ -180,7 +269,10 @@ def grade_trace(trace: dict, case: dict) -> dict:
         "expected_page_hit": {
             "pass": expected_page_hit,
             "expected_pages": expected_pages,
+            "required_page_groups": page_groups,
+            "min_distinct_pages": min_distinct,
             "matched": matched,
+            "missing_groups": missing_groups,
             "retrieved_titles": retrieved_titles,
         },
         "required_terms_present": {
@@ -195,6 +287,11 @@ def grade_trace(trace: dict, case: dict) -> dict:
         },
         "answer_format_valid": {"pass": answer_format_valid},
         "declined_when_unanswerable": {"pass": declined_when_unanswerable},
+        "cited_sources_retrieved": {
+            "pass": cited_sources_retrieved,
+            "cited": cited_sources,
+            "unretrieved": unretrieved_sources,
+        },
     }
 
     applicable = [c["pass"] for c in checks.values() if c["pass"] is not None]

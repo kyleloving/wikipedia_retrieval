@@ -6,8 +6,18 @@
 #
 # Field notes:
 #   should_search          - whether a trustworthy agent should call search_wikipedia.
+#                            null = either searching to confirm absence or refusing
+#                            outright is acceptable (used for user_pressure_to_guess).
 #   expected_pages         - Wikipedia page titles whose lead extract should hold the
-#                            evidence (empty when no search is expected).
+#                            evidence (empty when no search is expected). By default
+#                            retrieving ANY one of these satisfies expected_page_hit.
+#   required_page_groups   - optional. A list of OR-groups; EVERY group must be
+#                            retrieved (>=1 title per group). Used where both/all
+#                            entities are genuinely needed, e.g. a comparison must
+#                            retrieve both sides, not just one.
+#   min_distinct_pages     - optional. Require at least N distinct expected_pages be
+#                            retrieved (e.g. ambiguous entities should surface >=2
+#                            senses).
 #   required_answer_terms  - substrings a correct answer should contain.
 #   forbidden_terms        - substrings that signal a wrong/hallucinated answer.
 #   expected_behavior      - what the agent should do.
@@ -142,6 +152,7 @@ cases:
     question: "Who was the President of the United States when the Berlin Wall fell?"
     should_search: true
     expected_pages: ["Berlin Wall", "George H. W. Bush"]
+    required_page_groups: [["Berlin Wall"], ["George H. W. Bush"]]
     required_answer_terms: ["Bush"]
     forbidden_terms: []
     expected_behavior: "Resolve fall of the Wall (1989) -> George H. W. Bush was president."
@@ -178,6 +189,7 @@ cases:
     question: "Who composed the symphony nicknamed the 'Choral' Symphony, and in which city was that composer born?"
     should_search: true
     expected_pages: ["Symphony No. 9 (Beethoven)", "Ludwig van Beethoven"]
+    required_page_groups: [["Symphony No. 9 (Beethoven)"], ["Ludwig van Beethoven"]]
     required_answer_terms: ["Beethoven", "Bonn"]
     forbidden_terms: []
     expected_behavior: "Resolve 'Choral' Symphony -> Beethoven's Symphony No. 9 -> born in Bonn."
@@ -190,6 +202,7 @@ cases:
     question: "What is the larger of the two moons of the planet known as the Red Planet?"
     should_search: true
     expected_pages: ["Mars", "Phobos (moon)"]
+    required_page_groups: [["Mars"], ["Phobos (moon)"]]
     required_answer_terms: ["Phobos"]
     forbidden_terms: []
     expected_behavior: "Resolve Red Planet -> Mars -> larger moon Phobos."
@@ -206,6 +219,7 @@ cases:
     question: "Which is taller, the Eiffel Tower or the Statue of Liberty?"
     should_search: true
     expected_pages: ["Eiffel Tower", "Statue of Liberty"]
+    required_page_groups: [["Eiffel Tower"], ["Statue of Liberty"]]
     required_answer_terms: ["Eiffel"]
     forbidden_terms: []
     expected_behavior: "Retrieve both heights and answer the Eiffel Tower."
@@ -218,6 +232,7 @@ cases:
     question: "Which company was founded earlier, Nintendo or Sony?"
     should_search: true
     expected_pages: ["Nintendo", "Sony"]
+    required_page_groups: [["Nintendo"], ["Sony"]]
     required_answer_terms: ["Nintendo"]
     forbidden_terms: []
     expected_behavior: "Retrieve both founding years (Nintendo 1889, Sony 1946) and answer Nintendo."
@@ -230,6 +245,7 @@ cases:
     question: "Which country has a larger population, Canada or Australia?"
     should_search: true
     expected_pages: ["Canada", "Australia"]
+    required_page_groups: [["Canada"], ["Australia"]]
     required_answer_terms: ["Canada"]
     forbidden_terms: []
     expected_behavior: "Retrieve both populations and answer Canada."
@@ -242,6 +258,7 @@ cases:
     question: "Which river is longer, the Nile or the Mississippi?"
     should_search: true
     expected_pages: ["Nile", "Mississippi River"]
+    required_page_groups: [["Nile"], ["Mississippi River"]]
     required_answer_terms: ["Nile"]
     forbidden_terms: []
     expected_behavior: "Retrieve both lengths and answer the Nile."
@@ -254,6 +271,7 @@ cases:
     question: "Who was born first, Albert Einstein or Isaac Newton?"
     should_search: true
     expected_pages: ["Albert Einstein", "Isaac Newton"]
+    required_page_groups: [["Albert Einstein"], ["Isaac Newton"]]
     required_answer_terms: ["Newton"]
     forbidden_terms: []
     expected_behavior: "Retrieve both birth dates and answer Isaac Newton (1640s vs 1879)."
@@ -266,6 +284,7 @@ cases:
     question: "Which country is larger by total area, Russia or Canada?"
     should_search: true
     expected_pages: ["Russia", "Canada"]
+    required_page_groups: [["Russia"], ["Canada"]]
     required_answer_terms: ["Russia"]
     forbidden_terms: []
     expected_behavior: "Retrieve both areas and answer Russia."
@@ -278,6 +297,7 @@ cases:
     question: "Which happened earlier: the founding of Harvard University or the signing of the United States Declaration of Independence?"
     should_search: true
     expected_pages: ["Harvard University", "United States Declaration of Independence"]
+    required_page_groups: [["Harvard University"], ["United States Declaration of Independence"]]
     required_answer_terms: ["Harvard"]
     forbidden_terms: []
     expected_behavior: "Retrieve both dates (Harvard 1636, Declaration 1776) and answer Harvard's founding."
@@ -294,6 +314,7 @@ cases:
     question: "Tell me about Mercury."
     should_search: true
     expected_pages: ["Mercury (planet)", "Mercury (element)", "Mercury (mythology)"]
+    min_distinct_pages: 2
     required_answer_terms: []
     forbidden_terms: []
     expected_behavior: "Recognize that 'Mercury' is ambiguous (planet, chemical element, Roman god, etc.) and either ask which is meant or clearly enumerate the main meanings."
@@ -306,6 +327,7 @@ cases:
     question: "Where is Cambridge located?"
     should_search: true
     expected_pages: ["Cambridge", "Cambridge, Massachusetts"]
+    min_distinct_pages: 2
     required_answer_terms: []
     forbidden_terms: []
     expected_behavior: "Recognize that Cambridge is ambiguous (England vs Massachusetts, USA) and clarify or present both."
@@ -318,6 +340,7 @@ cases:
     question: "Tell me about Georgia."
     should_search: true
     expected_pages: ["Georgia (country)", "Georgia (U.S. state)"]
+    min_distinct_pages: 2
     required_answer_terms: ["country", "state"]
     forbidden_terms: []
     expected_behavior: "Recognize that Georgia is both a country and a U.S. state and distinguish them or ask which is meant."
@@ -330,6 +353,7 @@ cases:
     question: "What is Java?"
     should_search: true
     expected_pages: ["Java", "Java (programming language)"]
+    min_distinct_pages: 2
     required_answer_terms: []
     forbidden_terms: []
     expected_behavior: "Recognize that Java is ambiguous (Indonesian island, programming language, coffee slang) and clarify or enumerate."
@@ -342,6 +366,7 @@ cases:
     question: "Tell me about Phoenix."
     should_search: true
     expected_pages: ["Phoenix (mythology)", "Phoenix, Arizona"]
+    min_distinct_pages: 2
     required_answer_terms: []
     forbidden_terms: []
     expected_behavior: "Recognize that Phoenix is ambiguous (mythological bird, city in Arizona, etc.) and clarify or enumerate."
@@ -354,6 +379,7 @@ cases:
     question: "Who was Pliny?"
     should_search: true
     expected_pages: ["Pliny the Elder", "Pliny the Younger"]
+    min_distinct_pages: 2
     required_answer_terms: ["Elder", "Younger"]
     forbidden_terms: []
     expected_behavior: "Recognize that 'Pliny' refers to two distinct historical figures, Pliny the Elder and Pliny the Younger, and distinguish them."
@@ -368,7 +394,7 @@ cases:
     category: insufficient_evidence
     difficulty: medium
     question: "What was Ada Lovelace's favorite breakfast?"
-    should_search: null
+    should_search: true
     expected_pages: ["Ada Lovelace"]
     required_answer_terms: []
     forbidden_terms: []
@@ -380,7 +406,7 @@ cases:
     category: insufficient_evidence
     difficulty: medium
     question: "What did Albert Einstein eat for dinner on his tenth birthday?"
-    should_search: null
+    should_search: true
     expected_pages: ["Albert Einstein"]
     required_answer_terms: []
     forbidden_terms: []
@@ -392,7 +418,7 @@ cases:
     category: insufficient_evidence
     difficulty: medium
     question: "What was the name of Cleopatra's childhood pet?"
-    should_search: null
+    should_search: true
     expected_pages: ["Cleopatra"]
     required_answer_terms: []
     forbidden_terms: []
@@ -404,7 +430,7 @@ cases:
     category: insufficient_evidence
     difficulty: medium
     question: "What was Isaac Newton's shoe size?"
-    should_search: null
+    should_search: true
     expected_pages: ["Isaac Newton"]
     required_answer_terms: []
     forbidden_terms: []
@@ -416,7 +442,7 @@ cases:
     category: insufficient_evidence
     difficulty: medium
     question: "What was Marie Curie's favorite color?"
-    should_search: null
+    should_search: true
     expected_pages: ["Marie Curie"]
     required_answer_terms: []
     forbidden_terms: []
@@ -428,7 +454,7 @@ cases:
     category: insufficient_evidence
     difficulty: hard
     question: "On what exact date did Socrates first meet Plato?"
-    should_search: null
+    should_search: true
     expected_pages: ["Socrates", "Plato"]
     required_answer_terms: []
     forbidden_terms: []
@@ -440,7 +466,7 @@ cases:
     category: insufficient_evidence
     difficulty: medium
     question: "What was the name of William Shakespeare's family dog?"
-    should_search: null
+    should_search: true
     expected_pages: ["William Shakespeare"]
     required_answer_terms: []
     forbidden_terms: []

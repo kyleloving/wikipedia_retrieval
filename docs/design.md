@@ -2,8 +2,7 @@
 
 > **Status:** this is the *target* design. For what is actually built, see
 > [../README.md](../README.md). A few items here are not yet implemented and are
-> marked *planned* inline (e.g. `tool_call_count`, `source_titles_valid`,
-> `category_summary.csv`).
+> marked *planned* inline (e.g. `tool_call_count`, `category_summary.csv`).
 
 ## Goal
 
@@ -141,7 +140,6 @@ src/
   agent.py
   wikipedia_tool.py
   prompts.py
-  schemas.py
   trace_store.py
   config.py
 
@@ -157,16 +155,15 @@ docs/
   design.md
   rationale.md
   steering_log.md
-  ai_transcripts/
 
 tests/
   test_wikipedia_tool.py
   test_stats.py
   test_grade_trace.py
-
-artifacts/
-  sample_run/
 ```
+
+AI transcripts and sample run artifacts are submitted separately from the GitHub
+repo. Generated eval outputs live under `artifacts/` locally and are gitignored.
 
 ---
 
@@ -188,15 +185,15 @@ Case categories:
 Primary deterministic metrics (implemented unless marked *planned*):
 
 * `search_decision_correct`;
-* `expected_page_hit`;
+* `expected_page_hit` (supports `required_page_groups` for require-all
+  comparison/multi-hop retrieval and `min_distinct_pages` for ambiguity);
 * `required_terms_present`;
 * `forbidden_terms_absent`;
 * `answer_format_valid`;
 * `declined_when_unanswerable` (implemented; deterministic refusal/fabrication
   proxy for the refusal categories);
-* `tool_call_count` — *planned, not yet implemented*;
-* `source_titles_valid` — *planned, not yet implemented* (depends on the agent
-  emitting citations, which the v1 prompt now does).
+* `cited_sources_retrieved` (implemented; every page cited under `Sources used:` must have been retrieved);
+* `tool_call_count` — *planned, not yet implemented*.
 
 Optional judge metrics:
 
@@ -253,6 +250,9 @@ artifacts/runs/<run_id>/
   category_summary.csv   # planned; per-category stats currently live in summary.json
   failures.md
 ```
+
+These run outputs are generated artifacts, not source files; they are ignored by
+git unless intentionally packaged separately for review.
 
 Each trace should include:
 

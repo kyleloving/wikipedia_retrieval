@@ -152,3 +152,100 @@ def test_declined_check_na_for_non_refusal_category():
 def test_has_refusal_marker():
     assert _has_refusal_marker("This is not documented anywhere.") is True
     assert _has_refusal_marker("The capital is Paris.") is False
+
+
+# --- require-all page groups (#2): comparisons need BOTH sides ---
+
+
+def _pages(*titles):
+    return [
+        {"title": t, "url": f"https://en.wikipedia.org/wiki/{t.replace(' ', '_')}"}
+        for t in titles
+    ]
+
+
+def test_page_groups_require_every_group():
+    case = _case(
+        expected_pages=["Nile", "Mississippi River"],
+        required_page_groups=[["Nile"], ["Mississippi River"]],
+    )
+    both = grade_trace(
+        _trace(search_used=True, results=_pages("Nile", "Mississippi River")), case
+    )
+    assert both["checks"]["expected_page_hit"]["pass"] is True
+
+    one = grade_trace(_trace(search_used=True, results=_pages("Nile")), case)
+    assert one["checks"]["expected_page_hit"]["pass"] is False  # only one side
+    assert one["checks"]["expected_page_hit"]["missing_groups"] == [
+        ["Mississippi River"]
+    ]
+
+
+def test_min_distinct_pages_for_ambiguity():
+    case = _case(
+        category="ambiguous_entity",
+        expected_pages=["Java", "Java (programming language)"],
+        min_distinct_pages=2,
+    )
+    two = grade_trace(
+        _trace(search_used=True, results=_pages("Java", "Java (programming language)")),
+        case,
+    )
+    assert two["checks"]["expected_page_hit"]["pass"] is True
+
+    one = grade_trace(_trace(search_used=True, results=_pages("Java")), case)
+    assert one["checks"]["expected_page_hit"]["pass"] is False  # only one sense
+
+
+# --- deterministic source grounding (#3): no fabricated citations ---
+
+
+def test_cited_sources_must_be_retrieved():
+    results = _pages("Jupiter")
+    grounded = grade_trace(
+        _trace(
+            answer="Jupiter is largest.\n\nSources used:\n- Jupiter\nSearch used: yes",
+            search_used=True,
+            results=results,
+        ),
+        _case(expected_pages=["Jupiter"]),
+    )
+    assert grounded["checks"]["cited_sources_retrieved"]["pass"] is True
+
+    fabricated = grade_trace(
+        _trace(
+            answer="Jupiter is largest.\n\nSources used:\n- Saturn (planet)\nSearch used: yes",
+            search_used=True,
+            results=results,
+        ),
+        _case(expected_pages=["Jupiter"]),
+    )
+    assert fabricated["checks"]["cited_sources_retrieved"]["pass"] is False
+    assert (
+        "Saturn (planet)"
+        in fabricated["checks"]["cited_sources_retrieved"]["unretrieved"]
+    )
+
+
+def test_cited_sources_na_when_none_or_no_search():
+    none_cited = grade_trace(
+        _trace(
+            answer="A haiku.\n\nSources used: none\nSearch used: no",
+            category="no_search",
+        ),
+        _case(category="no_search", should_search=False),
+    )
+    assert none_cited["checks"]["cited_sources_retrieved"]["pass"] is None
+
+
+def test_cited_sources_tolerates_disambiguator():
+    # Cited 'Mona Lisa' should match retrieved 'Mona Lisa (painting)'.
+    g = grade_trace(
+        _trace(
+            answer="Leonardo painted it.\n\nSources used:\n- Mona Lisa\nSearch used: yes",
+            search_used=True,
+            results=_pages("Mona Lisa (painting)"),
+        ),
+        _case(expected_pages=["Mona Lisa"]),
+    )
+    assert g["checks"]["cited_sources_retrieved"]["pass"] is True

@@ -1,5 +1,9 @@
 # Core dependencies for the Claude + Wikipedia QA agent.
-anthropic>=0.40.0
+# anthropic floor is the tested version: the agent relies on the beta tool runner
+# (client.beta.messages.tool_runner, @beta_tool) and client.messages.parse(),
+# which are not present in older releases. Capped below 1.0 to avoid an untested
+# major bump.
+anthropic>=0.109.0,<1.0.0
 python-dotenv>=1.0.0
 requests>=2.31.0
 rich>=13.0.0

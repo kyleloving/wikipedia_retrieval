@@ -76,7 +76,9 @@ python evals/grade_trace.py <trace.json> --judge        # + Claude-as-judge scor
 python evals/compare.py <run1> <run2>
 ```
 
-A worked example run is committed under [artifacts/sample_run/](artifacts/sample_run/).
+Eval outputs are written under `artifacts/` and are intentionally gitignored.
+The submitted package may include a sample run separately, but fresh runs are
+easy to regenerate with the commands above.
 
 ## Artifact structure
 
@@ -89,7 +91,6 @@ artifacts/runs/<run_id>/
   summary.csv          # flat metric table (rate + Wilson CI) for spreadsheets/cross-run
   failures.md          # failing cases grouped by category
 artifacts/comparisons/<a>_vs_<b>.md   # output of compare.py
-artifacts/sample_run/                 # a committed example run
 ```
 Traces and grades are kept separate so traces can be re-graded without re-running
 Claude.
@@ -98,9 +99,14 @@ Claude.
 
 **Deterministic (always, free)** — per case and aggregated with a Wilson 95% CI:
 - `search_decision_correct` — searched iff it should have
-- `expected_page_hit` — an expected Wikipedia page was retrieved
+- `expected_page_hit` — the necessary Wikipedia pages were retrieved (supports
+  require-all OR-groups for comparisons/multi-hop and a min-distinct threshold for
+  ambiguous entities)
+- `cited_sources_retrieved` — every page the answer cites under `Sources used:`
+  was actually retrieved (grounding check; flags fabricated citations)
 - `required_terms_present` / `forbidden_terms_absent` — answer content checks
-- `answer_format_valid` — non-empty answer
+- `answer_format_valid` — non-empty answer with the required `Search used:` line
+- `declined_when_unanswerable` — refusal categories state uncertainty (don't fabricate)
 - `deterministic_pass` — all applicable checks passed
 
 **Run health** — tool-call failure rate (e.g. rate limiting); flags a run
@@ -121,8 +127,10 @@ narrative on top.
 - **Small suite (50 cases, 3–8 per category).** Confidence intervals are wide;
   treat category and cross-run differences as directional, not significant.
 - **Deterministic checks are shallow.** Term matching is word-boundary
-  case-sensitive and page matching is title- or URL-slug based (redirect-safe),
-  but they still can't judge truth or grounding — that needs the judge.
+  case-sensitive and page matching is title- or URL-slug based (redirect-safe).
+  `cited_sources_retrieved` catches citations to pages that were never retrieved,
+  but deterministic checks still can't judge whether a *claim* is true or actually
+  supported by the retrieved text — that needs the judge.
 - **The judge is an LLM, not ground truth.** Run-level judging retries transient
   failures, but the scores aren't validated against human labels (no test–retest
   or human-agreement study yet).
@@ -138,5 +146,7 @@ narrative on top.
   (`wikipedia_tool.py`), trace store, config
 - `evals/` — cases (`cases.yaml`), runner, graders, stats, comparison
 - `tests/` — unit tests (`pytest`)
-- `docs/` — design, rationale, steering log
-- `artifacts/` — run outputs and the committed sample run
+- `docs/` — design, rationale, steering log (AI transcripts are submitted
+  separately; see `ai_transcripts/`)
+- `artifacts/` — generated run outputs (gitignored); a sample run is provided
+  separately

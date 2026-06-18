@@ -34,6 +34,7 @@ CHECK_NAMES = [
     "forbidden_terms_absent",
     "answer_format_valid",
     "declined_when_unanswerable",
+    "cited_sources_retrieved",
 ]
 
 # Judge metrics aggregated when present (grade_trace --judge). 0/1/2 scores.
@@ -389,6 +390,8 @@ def _fail_detail(name: str, check: dict) -> str:
     if name == "search_decision_correct":
         return f" (expected search={check['expected']}, got {check['actual']})"
     if name == "expected_page_hit":
+        if check.get("missing_groups"):
+            return f" (groups not retrieved: {check['missing_groups']})"
         return f" (none of {check['expected_pages']} retrieved)"
     if name == "required_terms_present":
         return f" (missing {check['missing']})"
@@ -398,6 +401,8 @@ def _fail_detail(name: str, check: dict) -> str:
         return " (missing 'Search used:' line or empty answer)"
     if name == "declined_when_unanswerable":
         return " (no refusal/uncertainty marker — may have fabricated)"
+    if name == "cited_sources_retrieved":
+        return f" (cited but never retrieved: {check.get('unretrieved')})"
     return ""
 
 

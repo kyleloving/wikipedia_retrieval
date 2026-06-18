@@ -62,3 +62,14 @@ health and per-category deltas, and side-by-side judge aggregates. Serves both
 A/B optimization of prompts/tools and reproducibility checks (compare a config
 against another run of itself). N-run comparison deferred. Comparison reports
 write to `artifacts/comparisons/` (gitignored).
+
+## 2026-06-17 - Submission packaging and rubric cleanup
+
+Decision: keep generated eval artifacts and raw AI transcript exports out of the
+GitHub repo. They are submitted separately when needed, while the repo keeps the
+code, eval cases, docs, and a pointer in `docs/ai_transcripts/README.md`.
+
+Also tightened the deterministic rubric after review: comparison and selected
+multi-hop cases can require all necessary page groups, ambiguous-entity cases
+can require multiple distinct pages, and cited sources must correspond to pages
+actually retrieved by the local Wikipedia tool.

@@ -16,3 +16,7 @@ env/
 artifacts/runs/
 artifacts/comparisons/
 artifacts/*
+
+# Transcript exports are submitted separately from the repo
+docs/ai_transcripts/session-*.md
+docs/ai_transcripts/_convert.py
