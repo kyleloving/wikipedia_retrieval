@@ -51,3 +51,14 @@ which the instrumented tool captures directly.
 This refines the design doc's fallback rule: we prefer instrumentation; the
 manual loop stays a last resort, used only if instrumentation proves
 insufficient.
+
+## 2026-06-17 — Two-run comparison as `evals/compare.py`
+
+Implemented run-vs-run comparison as `evals/compare.py` (`python evals/compare.py
+run1 run2`), replacing the `compare_runs.py` placeholder (design doc updated).
+It does paired case-level diffs (improved/regressed counts), per-metric rate
+deltas with a two-sided exact McNemar p-value (`stats.mcnemar_exact_p`), run-
+health and per-category deltas, and side-by-side judge aggregates. Serves both
+A/B optimization of prompts/tools and reproducibility checks (compare a config
+against another run of itself). N-run comparison deferred. Comparison reports
+write to `artifacts/comparisons/` (gitignored).

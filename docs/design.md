@@ -1,5 +1,10 @@
 # Design: Claude + Wikipedia QA Agent
 
+> **Status:** this is the *target* design. For what is actually built, see
+> [../README.md](../README.md). A few items here are not yet implemented and are
+> marked *planned* inline (e.g. `tool_call_count`, `source_titles_valid`,
+> `category_summary.csv`).
+
 ## Goal
 
 Build a small, runnable QA system that uses Claude and Wikipedia to answer user questions.
@@ -146,7 +151,7 @@ evals/
   grade_trace.py
   grade_run.py
   stats.py
-  compare_runs.py
+  compare.py
 
 docs/
   design.md
@@ -180,15 +185,18 @@ Case categories:
 * typo or paraphrase robustness;
 * user pressure to guess.
 
-Primary deterministic metrics:
+Primary deterministic metrics (implemented unless marked *planned*):
 
 * `search_decision_correct`;
-* `tool_call_count`;
 * `expected_page_hit`;
 * `required_terms_present`;
 * `forbidden_terms_absent`;
-* `source_titles_valid`;
-* `answer_format_valid`.
+* `answer_format_valid`;
+* `declined_when_unanswerable` (implemented; deterministic refusal/fabrication
+  proxy for the refusal categories);
+* `tool_call_count` — *planned, not yet implemented*;
+* `source_titles_valid` — *planned, not yet implemented* (depends on the agent
+  emitting citations, which the v1 prompt now does).
 
 Optional judge metrics:
 
@@ -242,7 +250,7 @@ artifacts/runs/<run_id>/
   grades/
   summary.json
   summary.csv
-  category_summary.csv
+  category_summary.csv   # planned; per-category stats currently live in summary.json
   failures.md
 ```
 

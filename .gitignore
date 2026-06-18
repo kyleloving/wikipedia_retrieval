@@ -12,5 +12,7 @@ env/
 # Environment / secrets
 .env
 
-# Eval run outputs (keep the sample_run placeholder)
+# Eval run outputs
 artifacts/runs/
+artifacts/comparisons/
+artifacts/*

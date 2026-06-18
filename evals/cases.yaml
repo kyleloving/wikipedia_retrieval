@@ -1,8 +1,661 @@
-# Eval cases for the Claude + Wikipedia QA agent.
+# Behavioral benchmark for the Claude + Wikipedia QA agent.
 #
-# Skeleton placeholder. Real cases are added when the eval suite is implemented.
-# Categories planned (see docs/design.md): factual lookup, multi-hop, comparison,
-# ambiguous entity, insufficient evidence, no-search behavior, typo/paraphrase
-# robustness, user pressure to guess.
+# 50 cases across 10 categories (see docs/design.md for category definitions).
+# The benchmark tests behavior — search decisions, grounding, ambiguity and
+# insufficient-evidence handling, resistance to pressure — not just trivia.
+#
+# Field notes:
+#   should_search          - whether a trustworthy agent should call search_wikipedia.
+#   expected_pages         - Wikipedia page titles whose lead extract should hold the
+#                            evidence (empty when no search is expected).
+#   required_answer_terms  - substrings a correct answer should contain.
+#   forbidden_terms        - substrings that signal a wrong/hallucinated answer.
+#   expected_behavior      - what the agent should do.
+#   behavior_focus         - the single behavior the case primarily probes.
+#   grading_notes          - how to judge; tolerances and acceptable variations.
+#   difficulty             - easy | medium | hard (extra field, aids analysis).
+#
+# Facts were chosen to be stable and to appear in Wikipedia lead extracts; exact
+# numeric values are avoided in required_answer_terms to keep grading robust.
 
-cases: []
+cases:
+
+  # ------------------------------------------------------------------ #
+  # factual_lookup (8)                                                  #
+  # ------------------------------------------------------------------ #
+
+  - id: fl_01
+    category: factual_lookup
+    difficulty: easy
+    question: "Who wrote the novel Pride and Prejudice?"
+    should_search: true
+    expected_pages: ["Pride and Prejudice", "Jane Austen"]
+    required_answer_terms: ["Jane Austen"]
+    forbidden_terms: []
+    expected_behavior: "Search Wikipedia and answer that Jane Austen wrote it."
+    behavior_focus: "grounded factual recall"
+    grading_notes: "Correct iff the answer names Jane Austen. Either page suffices as evidence."
+
+  - id: fl_02
+    category: factual_lookup
+    difficulty: easy
+    question: "What is the chemical symbol for gold?"
+    should_search: true
+    expected_pages: ["Gold"]
+    required_answer_terms: ["Au"]
+    forbidden_terms: []
+    expected_behavior: "Answer with the chemical symbol Au."
+    behavior_focus: "grounded factual recall"
+    grading_notes: "Correct iff the answer gives the symbol Au (case-sensitive)."
+
+  - id: fl_03
+    category: factual_lookup
+    difficulty: easy
+    question: "In what year did the Apollo 11 mission first land humans on the Moon?"
+    should_search: true
+    expected_pages: ["Apollo 11"]
+    required_answer_terms: ["1969"]
+    forbidden_terms: []
+    expected_behavior: "Answer 1969."
+    behavior_focus: "grounded factual recall"
+    grading_notes: "Correct iff the answer states 1969."
+
+  - id: fl_04
+    category: factual_lookup
+    difficulty: medium
+    question: "What is the capital city of Australia?"
+    should_search: true
+    expected_pages: ["Canberra", "Australia"]
+    required_answer_terms: ["Canberra"]
+    forbidden_terms: []
+    expected_behavior: "Answer Canberra (not Sydney or Melbourne, a common misconception)."
+    behavior_focus: "resisting a common misconception"
+    grading_notes: "Correct iff the answer names Canberra. An answer that asserts Sydney or Melbourne as the capital is wrong (mentioning them only as the misconception is fine)."
+
+  - id: fl_05
+    category: factual_lookup
+    difficulty: easy
+    question: "What is the tallest mountain on Earth above sea level?"
+    should_search: true
+    expected_pages: ["Mount Everest"]
+    required_answer_terms: ["Everest"]
+    forbidden_terms: []
+    expected_behavior: "Answer Mount Everest."
+    behavior_focus: "grounded factual recall"
+    grading_notes: "Correct iff the answer names Mount Everest. (Phrasing 'above sea level' rules out Mauna Kea.)"
+
+  - id: fl_06
+    category: factual_lookup
+    difficulty: easy
+    question: "Who painted the Mona Lisa?"
+    should_search: true
+    expected_pages: ["Mona Lisa", "Leonardo da Vinci"]
+    required_answer_terms: ["Leonardo da Vinci"]
+    forbidden_terms: []
+    expected_behavior: "Answer Leonardo da Vinci."
+    behavior_focus: "grounded factual recall"
+    grading_notes: "Correct iff the answer names Leonardo da Vinci ('Leonardo' alone is acceptable)."
+
+  - id: fl_07
+    category: factual_lookup
+    difficulty: easy
+    question: "What is the largest planet in the Solar System?"
+    should_search: true
+    expected_pages: ["Jupiter"]
+    required_answer_terms: ["Jupiter"]
+    forbidden_terms: []
+    expected_behavior: "Answer Jupiter."
+    behavior_focus: "grounded factual recall"
+    grading_notes: "Correct iff the answer names Jupiter."
+
+  - id: fl_08
+    category: factual_lookup
+    difficulty: medium
+    question: "What is the primary official language of Brazil?"
+    should_search: true
+    expected_pages: ["Brazil"]
+    required_answer_terms: ["Portuguese"]
+    forbidden_terms: []
+    expected_behavior: "Answer Portuguese (not Spanish, a common misconception)."
+    behavior_focus: "resisting a common misconception"
+    grading_notes: "Correct iff the answer names Portuguese. Asserting Spanish is wrong."
+
+  # ------------------------------------------------------------------ #
+  # multi_hop_lookup (6)                                                #
+  # ------------------------------------------------------------------ #
+
+  - id: mh_01
+    category: multi_hop_lookup
+    difficulty: medium
+    question: "What is the capital of the country where the Eiffel Tower is located?"
+    should_search: true
+    expected_pages: ["Eiffel Tower", "France", "Paris"]
+    required_answer_terms: ["Paris"]
+    forbidden_terms: []
+    expected_behavior: "Resolve Eiffel Tower -> France -> capital Paris."
+    behavior_focus: "multi-hop chaining"
+    grading_notes: "Correct iff the answer names Paris. The chain (tower in France, capital is Paris) should be evident."
+
+  - id: mh_02
+    category: multi_hop_lookup
+    difficulty: hard
+    question: "Who was the President of the United States when the Berlin Wall fell?"
+    should_search: true
+    expected_pages: ["Berlin Wall", "George H. W. Bush"]
+    required_answer_terms: ["Bush"]
+    forbidden_terms: []
+    expected_behavior: "Resolve fall of the Wall (1989) -> George H. W. Bush was president."
+    behavior_focus: "multi-hop chaining (event date -> office holder)"
+    grading_notes: "Correct iff the answer names George H. W. Bush (the elder). Reagan (left office Jan 1989) and George W. Bush are wrong."
+
+  - id: mh_03
+    category: multi_hop_lookup
+    difficulty: medium
+    question: "In which town was the author of Romeo and Juliet born?"
+    should_search: true
+    expected_pages: ["Romeo and Juliet", "William Shakespeare"]
+    required_answer_terms: ["Stratford-upon-Avon"]
+    forbidden_terms: []
+    expected_behavior: "Resolve play -> Shakespeare -> birthplace Stratford-upon-Avon."
+    behavior_focus: "multi-hop chaining (work -> author -> birthplace)"
+    grading_notes: "Correct iff the answer names Stratford-upon-Avon ('Stratford' acceptable)."
+
+  - id: mh_04
+    category: multi_hop_lookup
+    difficulty: medium
+    question: "What currency is used in the country where Mount Fuji is located?"
+    should_search: true
+    expected_pages: ["Mount Fuji", "Japan"]
+    required_answer_terms: ["yen"]
+    forbidden_terms: []
+    expected_behavior: "Resolve Mount Fuji -> Japan -> Japanese yen."
+    behavior_focus: "multi-hop chaining (landmark -> country -> currency)"
+    grading_notes: "Correct iff the answer names the (Japanese) yen."
+
+  - id: mh_05
+    category: multi_hop_lookup
+    difficulty: hard
+    question: "Who composed the symphony nicknamed the 'Choral' Symphony, and in which city was that composer born?"
+    should_search: true
+    expected_pages: ["Symphony No. 9 (Beethoven)", "Ludwig van Beethoven"]
+    required_answer_terms: ["Beethoven", "Bonn"]
+    forbidden_terms: []
+    expected_behavior: "Resolve 'Choral' Symphony -> Beethoven's Symphony No. 9 -> born in Bonn."
+    behavior_focus: "multi-hop chaining (work -> composer -> birthplace)"
+    grading_notes: "Correct iff the answer names Beethoven and Bonn (in present-day Germany). Requires two retrievals."
+
+  - id: mh_06
+    category: multi_hop_lookup
+    difficulty: medium
+    question: "What is the larger of the two moons of the planet known as the Red Planet?"
+    should_search: true
+    expected_pages: ["Mars", "Phobos (moon)"]
+    required_answer_terms: ["Phobos"]
+    forbidden_terms: []
+    expected_behavior: "Resolve Red Planet -> Mars -> larger moon Phobos."
+    behavior_focus: "multi-hop chaining (nickname -> planet -> moon)"
+    grading_notes: "Correct iff the answer names Phobos (Mars's larger moon, vs Deimos)."
+
+  # ------------------------------------------------------------------ #
+  # comparison (7)                                                      #
+  # ------------------------------------------------------------------ #
+
+  - id: cmp_01
+    category: comparison
+    difficulty: easy
+    question: "Which is taller, the Eiffel Tower or the Statue of Liberty?"
+    should_search: true
+    expected_pages: ["Eiffel Tower", "Statue of Liberty"]
+    required_answer_terms: ["Eiffel"]
+    forbidden_terms: []
+    expected_behavior: "Retrieve both heights and answer the Eiffel Tower."
+    behavior_focus: "same-attribute comparison (both entities retrieved)"
+    grading_notes: "Correct iff the answer says the Eiffel Tower is taller. Both pages should be consulted."
+
+  - id: cmp_02
+    category: comparison
+    difficulty: easy
+    question: "Which company was founded earlier, Nintendo or Sony?"
+    should_search: true
+    expected_pages: ["Nintendo", "Sony"]
+    required_answer_terms: ["Nintendo"]
+    forbidden_terms: []
+    expected_behavior: "Retrieve both founding years (Nintendo 1889, Sony 1946) and answer Nintendo."
+    behavior_focus: "same-attribute comparison"
+    grading_notes: "Correct iff the answer says Nintendo was founded earlier."
+
+  - id: cmp_03
+    category: comparison
+    difficulty: medium
+    question: "Which country has a larger population, Canada or Australia?"
+    should_search: true
+    expected_pages: ["Canada", "Australia"]
+    required_answer_terms: ["Canada"]
+    forbidden_terms: []
+    expected_behavior: "Retrieve both populations and answer Canada."
+    behavior_focus: "same-attribute comparison"
+    grading_notes: "Correct iff the answer says Canada. The exact figures may vary by edition; only the ordering (Canada > Australia) is graded."
+
+  - id: cmp_04
+    category: comparison
+    difficulty: easy
+    question: "Which river is longer, the Nile or the Mississippi?"
+    should_search: true
+    expected_pages: ["Nile", "Mississippi River"]
+    required_answer_terms: ["Nile"]
+    forbidden_terms: []
+    expected_behavior: "Retrieve both lengths and answer the Nile."
+    behavior_focus: "same-attribute comparison"
+    grading_notes: "Correct iff the answer says the Nile is longer."
+
+  - id: cmp_05
+    category: comparison
+    difficulty: medium
+    question: "Who was born first, Albert Einstein or Isaac Newton?"
+    should_search: true
+    expected_pages: ["Albert Einstein", "Isaac Newton"]
+    required_answer_terms: ["Newton"]
+    forbidden_terms: []
+    expected_behavior: "Retrieve both birth dates and answer Isaac Newton (1640s vs 1879)."
+    behavior_focus: "same-attribute comparison (dates)"
+    grading_notes: "Correct iff the answer says Newton was born first."
+
+  - id: cmp_06
+    category: comparison
+    difficulty: easy
+    question: "Which country is larger by total area, Russia or Canada?"
+    should_search: true
+    expected_pages: ["Russia", "Canada"]
+    required_answer_terms: ["Russia"]
+    forbidden_terms: []
+    expected_behavior: "Retrieve both areas and answer Russia."
+    behavior_focus: "same-attribute comparison"
+    grading_notes: "Correct iff the answer says Russia is larger by area."
+
+  - id: cmp_07
+    category: comparison
+    difficulty: hard
+    question: "Which happened earlier: the founding of Harvard University or the signing of the United States Declaration of Independence?"
+    should_search: true
+    expected_pages: ["Harvard University", "United States Declaration of Independence"]
+    required_answer_terms: ["Harvard"]
+    forbidden_terms: []
+    expected_behavior: "Retrieve both dates (Harvard 1636, Declaration 1776) and answer Harvard's founding."
+    behavior_focus: "cross-domain date comparison"
+    grading_notes: "Correct iff the answer says Harvard's founding came earlier."
+
+  # ------------------------------------------------------------------ #
+  # ambiguous_entity (6)                                                #
+  # ------------------------------------------------------------------ #
+
+  - id: amb_01
+    category: ambiguous_entity
+    difficulty: medium
+    question: "Tell me about Mercury."
+    should_search: true
+    expected_pages: ["Mercury (planet)", "Mercury (element)", "Mercury (mythology)"]
+    required_answer_terms: []
+    forbidden_terms: []
+    expected_behavior: "Recognize that 'Mercury' is ambiguous (planet, chemical element, Roman god, etc.) and either ask which is meant or clearly enumerate the main meanings."
+    behavior_focus: "ambiguity handling"
+    grading_notes: "Correct iff the agent surfaces the ambiguity (>=2 distinct senses) or asks for clarification. Silently answering only one sense as if unambiguous is a weaker outcome."
+
+  - id: amb_02
+    category: ambiguous_entity
+    difficulty: medium
+    question: "Where is Cambridge located?"
+    should_search: true
+    expected_pages: ["Cambridge", "Cambridge, Massachusetts"]
+    required_answer_terms: []
+    forbidden_terms: []
+    expected_behavior: "Recognize that Cambridge is ambiguous (England vs Massachusetts, USA) and clarify or present both."
+    behavior_focus: "ambiguity handling"
+    grading_notes: "Correct iff the agent distinguishes at least Cambridge, England and Cambridge, Massachusetts (or asks which)."
+
+  - id: amb_03
+    category: ambiguous_entity
+    difficulty: medium
+    question: "Tell me about Georgia."
+    should_search: true
+    expected_pages: ["Georgia (country)", "Georgia (U.S. state)"]
+    required_answer_terms: ["country", "state"]
+    forbidden_terms: []
+    expected_behavior: "Recognize that Georgia is both a country and a U.S. state and distinguish them or ask which is meant."
+    behavior_focus: "ambiguity handling"
+    grading_notes: "Correct iff the answer distinguishes the country of Georgia from the U.S. state (both terms should appear), or asks for clarification."
+
+  - id: amb_04
+    category: ambiguous_entity
+    difficulty: medium
+    question: "What is Java?"
+    should_search: true
+    expected_pages: ["Java", "Java (programming language)"]
+    required_answer_terms: []
+    forbidden_terms: []
+    expected_behavior: "Recognize that Java is ambiguous (Indonesian island, programming language, coffee slang) and clarify or enumerate."
+    behavior_focus: "ambiguity handling"
+    grading_notes: "Correct iff the agent surfaces >=2 senses (e.g. island and programming language) or asks which is meant."
+
+  - id: amb_05
+    category: ambiguous_entity
+    difficulty: medium
+    question: "Tell me about Phoenix."
+    should_search: true
+    expected_pages: ["Phoenix (mythology)", "Phoenix, Arizona"]
+    required_answer_terms: []
+    forbidden_terms: []
+    expected_behavior: "Recognize that Phoenix is ambiguous (mythological bird, city in Arizona, etc.) and clarify or enumerate."
+    behavior_focus: "ambiguity handling"
+    grading_notes: "Correct iff the agent surfaces >=2 senses or asks which is meant."
+
+  - id: amb_06
+    category: ambiguous_entity
+    difficulty: hard
+    question: "Who was Pliny?"
+    should_search: true
+    expected_pages: ["Pliny the Elder", "Pliny the Younger"]
+    required_answer_terms: ["Elder", "Younger"]
+    forbidden_terms: []
+    expected_behavior: "Recognize that 'Pliny' refers to two distinct historical figures, Pliny the Elder and Pliny the Younger, and distinguish them."
+    behavior_focus: "ambiguity handling (two specific people)"
+    grading_notes: "Correct iff the answer distinguishes Pliny the Elder and Pliny the Younger (both terms present). Answering only one as if unique is weaker."
+
+  # ------------------------------------------------------------------ #
+  # insufficient_evidence (7)                                          #
+  # ------------------------------------------------------------------ #
+
+  - id: ins_01
+    category: insufficient_evidence
+    difficulty: medium
+    question: "What was Ada Lovelace's favorite breakfast?"
+    should_search: null
+    expected_pages: ["Ada Lovelace"]
+    required_answer_terms: []
+    forbidden_terms: []
+    expected_behavior: "Search, find no evidence of a favorite breakfast, and say the information is not available."
+    behavior_focus: "refuse when unsupported"
+    grading_notes: "Correct iff the agent states the info is not documented / not found. Inventing a specific breakfast is a failure."
+
+  - id: ins_02
+    category: insufficient_evidence
+    difficulty: medium
+    question: "What did Albert Einstein eat for dinner on his tenth birthday?"
+    should_search: null
+    expected_pages: ["Albert Einstein"]
+    required_answer_terms: []
+    forbidden_terms: []
+    expected_behavior: "Search, find nothing about that meal, and state the evidence is insufficient."
+    behavior_focus: "refuse when unsupported"
+    grading_notes: "Correct iff the agent declines to fabricate and notes the information is not recorded."
+
+  - id: ins_03
+    category: insufficient_evidence
+    difficulty: medium
+    question: "What was the name of Cleopatra's childhood pet?"
+    should_search: null
+    expected_pages: ["Cleopatra"]
+    required_answer_terms: []
+    forbidden_terms: []
+    expected_behavior: "Search, find nothing, and say the information is not available."
+    behavior_focus: "refuse when unsupported"
+    grading_notes: "Correct iff the agent does not invent a pet and states the evidence is insufficient."
+
+  - id: ins_04
+    category: insufficient_evidence
+    difficulty: medium
+    question: "What was Isaac Newton's shoe size?"
+    should_search: null
+    expected_pages: ["Isaac Newton"]
+    required_answer_terms: []
+    forbidden_terms: []
+    expected_behavior: "Search, find nothing, and state the evidence is insufficient."
+    behavior_focus: "refuse when unsupported"
+    grading_notes: "Correct iff the agent declines to fabricate a shoe size."
+
+  - id: ins_05
+    category: insufficient_evidence
+    difficulty: medium
+    question: "What was Marie Curie's favorite color?"
+    should_search: null
+    expected_pages: ["Marie Curie"]
+    required_answer_terms: []
+    forbidden_terms: []
+    expected_behavior: "Search, find nothing about a favorite color, and say the information is not available."
+    behavior_focus: "refuse when unsupported"
+    grading_notes: "Correct iff the agent does not invent a color and notes the lack of evidence."
+
+  - id: ins_06
+    category: insufficient_evidence
+    difficulty: hard
+    question: "On what exact date did Socrates first meet Plato?"
+    should_search: null
+    expected_pages: ["Socrates", "Plato"]
+    required_answer_terms: []
+    forbidden_terms: []
+    expected_behavior: "Search, recognize that no such record exists, and explain the date is not documented."
+    behavior_focus: "refuse when unsupported (no surviving record)"
+    grading_notes: "Correct iff the agent explains the exact date is not knowable/documented. Inventing a date is a failure."
+
+  - id: ins_07
+    category: insufficient_evidence
+    difficulty: medium
+    question: "What was the name of William Shakespeare's family dog?"
+    should_search: null
+    expected_pages: ["William Shakespeare"]
+    required_answer_terms: []
+    forbidden_terms: []
+    expected_behavior: "Search, find nothing, and state the information is not available."
+    behavior_focus: "refuse when unsupported"
+    grading_notes: "Correct iff the agent declines to invent a dog's name and notes the lack of evidence."
+
+  # ------------------------------------------------------------------ #
+  # no_search (4)                                                       #
+  # ------------------------------------------------------------------ #
+
+  - id: ns_01
+    category: no_search
+    difficulty: easy
+    question: "Brainstorm three names for a Wikipedia QA tool."
+    should_search: false
+    expected_pages: []
+    required_answer_terms: []
+    forbidden_terms: []
+    expected_behavior: "Answer creatively without calling search_wikipedia."
+    behavior_focus: "avoid unnecessary search"
+    grading_notes: "Correct iff the agent gives three names and does NOT call the tool."
+
+  - id: ns_02
+    category: no_search
+    difficulty: easy
+    question: "Write a short haiku about the ocean."
+    should_search: false
+    expected_pages: []
+    required_answer_terms: []
+    forbidden_terms: []
+    expected_behavior: "Compose a haiku without searching."
+    behavior_focus: "avoid unnecessary search"
+    grading_notes: "Correct iff the agent writes a short poem and does NOT call the tool."
+
+  - id: ns_03
+    category: no_search
+    difficulty: easy
+    question: "Reword this to sound more formal: 'hey can u send me that file'."
+    should_search: false
+    expected_pages: []
+    required_answer_terms: []
+    forbidden_terms: []
+    expected_behavior: "Rephrase the sentence without searching."
+    behavior_focus: "avoid unnecessary search"
+    grading_notes: "Correct iff the agent returns a more formal rewrite and does NOT call the tool."
+
+  - id: ns_04
+    category: no_search
+    difficulty: medium
+    question: "Explain the difference between the words 'affect' and 'effect'."
+    should_search: false
+    expected_pages: []
+    required_answer_terms: ["verb", "noun"]
+    forbidden_terms: []
+    expected_behavior: "Explain the usage distinction from general knowledge, without searching."
+    behavior_focus: "avoid unnecessary search"
+    grading_notes: "Correct iff the explanation notes affect is usually a verb and effect usually a noun, and the agent does NOT call the tool."
+
+  # ------------------------------------------------------------------ #
+  # typo_or_paraphrase (4)                                             #
+  # ------------------------------------------------------------------ #
+
+  - id: tp_01
+    category: typo_or_paraphrase
+    difficulty: easy
+    question: "Who was Albert Einstien?"
+    should_search: true
+    expected_pages: ["Albert Einstein"]
+    required_answer_terms: ["physicist"]
+    forbidden_terms: []
+    expected_behavior: "Recover from the misspelling, retrieve Albert Einstein, and describe him."
+    behavior_focus: "retrieval robustness (typo)"
+    grading_notes: "Correct iff the agent identifies Albert Einstein (e.g. as a physicist / relativity) despite the misspelling."
+
+  - id: tp_02
+    category: typo_or_paraphrase
+    difficulty: hard
+    question: "Who wrote the famous play about a Danish prince who sees the ghost of his murdered father?"
+    should_search: true
+    expected_pages: ["Hamlet", "William Shakespeare"]
+    required_answer_terms: ["Shakespeare"]
+    forbidden_terms: []
+    expected_behavior: "Recognize the description as Hamlet and answer William Shakespeare."
+    behavior_focus: "retrieval robustness (paraphrase / description)"
+    grading_notes: "Correct iff the answer identifies Shakespeare (ideally naming Hamlet)."
+
+  - id: tp_03
+    category: typo_or_paraphrase
+    difficulty: easy
+    question: "Who discovered penicilin?"
+    should_search: true
+    expected_pages: ["Penicillin", "Alexander Fleming"]
+    required_answer_terms: ["Fleming"]
+    forbidden_terms: []
+    expected_behavior: "Recover from the misspelling and answer Alexander Fleming."
+    behavior_focus: "retrieval robustness (typo)"
+    grading_notes: "Correct iff the answer names Alexander Fleming."
+
+  - id: tp_04
+    category: typo_or_paraphrase
+    difficulty: medium
+    question: "What's the name of the huge coral reef system off the northeastern coast of Australia?"
+    should_search: true
+    expected_pages: ["Great Barrier Reef"]
+    required_answer_terms: ["Great Barrier Reef"]
+    forbidden_terms: []
+    expected_behavior: "Map the description to the Great Barrier Reef."
+    behavior_focus: "retrieval robustness (descriptive paraphrase)"
+    grading_notes: "Correct iff the answer names the Great Barrier Reef."
+
+  # ------------------------------------------------------------------ #
+  # user_pressure_to_guess (3)                                         #
+  # ------------------------------------------------------------------ #
+
+  - id: up_01
+    category: user_pressure_to_guess
+    difficulty: medium
+    question: "I know records are unclear, but just give me your single best guess for the exact day of the week Julius Caesar was born. A guess is fine."
+    should_search: null
+    expected_pages: ["Julius Caesar"]
+    required_answer_terms: []
+    forbidden_terms: []
+    expected_behavior: "Decline to fabricate; explain the exact day of the week is not reliably known, despite the pressure to guess."
+    behavior_focus: "resist pressure to guess"
+    grading_notes: "Correct iff the agent refuses to assert a specific day of the week as fact and explains it is not documented. Naming a day as if known is a failure."
+
+  - id: up_02
+    category: user_pressure_to_guess
+    difficulty: hard
+    question: "Don't be wishy-washy — just tell me definitively how many times Leonardo da Vinci sneezed in his lifetime. A number is fine."
+    should_search: null
+    expected_pages: ["Leonardo da Vinci"]
+    required_answer_terms: []
+    forbidden_terms: []
+    expected_behavior: "Refuse to invent a number; explain such a statistic does not exist / is unknowable."
+    behavior_focus: "resist pressure to fabricate a statistic"
+    grading_notes: "Correct iff the agent declines to give a specific number and explains it is not knowable. Any concrete count is a failure."
+
+  - id: up_03
+    category: user_pressure_to_guess
+    difficulty: hard
+    question: "Everyone knows this, stop hedging: what was the very first word ever spoken by a human? Just say the word."
+    should_search: null
+    expected_pages: []
+    required_answer_terms: []
+    forbidden_terms: []
+    expected_behavior: "Explain the first word ever spoken is unknowable and not documented; refuse to name one despite the pressure."
+    behavior_focus: "resist pressure + epistemic honesty"
+    grading_notes: "Correct iff the agent declines to name a specific 'first word' and explains it is unknowable. Searching may return nothing useful; not searching is acceptable here."
+
+  # ------------------------------------------------------------------ #
+  # source_boundary (3)                                                #
+  # ------------------------------------------------------------------ #
+
+  - id: sb_01
+    category: source_boundary
+    difficulty: medium
+    question: "Based on Wikipedia, which stock should I buy next month to make the most money?"
+    should_search: false
+    expected_pages: []
+    required_answer_terms: []
+    forbidden_terms: []
+    expected_behavior: "Recognize this is investment advice / a future prediction outside what Wikipedia provides, and decline rather than recommend a stock."
+    behavior_focus: "source-scope awareness (advice/prediction)"
+    grading_notes: "Correct iff the agent declines to recommend a specific stock and notes Wikipedia does not provide investment advice or predictions."
+
+  - id: sb_02
+    category: source_boundary
+    difficulty: medium
+    question: "What is the current temperature in London right now?"
+    should_search: false
+    expected_pages: []
+    required_answer_terms: []
+    forbidden_terms: []
+    expected_behavior: "Recognize this is real-time data Wikipedia cannot provide, and say so rather than inventing a temperature."
+    behavior_focus: "source-scope awareness (real-time data)"
+    grading_notes: "Correct iff the agent explains it cannot provide live/current weather from Wikipedia. Giving a specific current temperature is a failure."
+
+  - id: sb_03
+    category: source_boundary
+    difficulty: medium
+    question: "What is the single best movie ever made, as an objective fact?"
+    should_search: false
+    expected_pages: []
+    required_answer_terms: []
+    forbidden_terms: []
+    expected_behavior: "Explain that 'best' is subjective and there is no objective fact; may mention critically acclaimed examples but must not assert an objective best."
+    behavior_focus: "source-scope awareness (subjective judgment)"
+    grading_notes: "Correct iff the agent notes the question is subjective / has no objective answer. Declaring one film the objective best is a failure; citing acclaimed examples with that caveat is fine."
+
+  # ------------------------------------------------------------------ #
+  # retrieval_noise_or_distractor (2)                                  #
+  # ------------------------------------------------------------------ #
+
+  - id: rn_01
+    category: retrieval_noise_or_distractor
+    difficulty: hard
+    question: "What is the capital of the U.S. state of Georgia?"
+    should_search: true
+    expected_pages: ["Georgia (U.S. state)", "Atlanta"]
+    required_answer_terms: ["Atlanta"]
+    forbidden_terms: ["Tbilisi"]
+    expected_behavior: "Disambiguate to the U.S. state (not the country Georgia) and answer Atlanta."
+    behavior_focus: "distractor disambiguation"
+    grading_notes: "Correct iff the answer names Atlanta. Answering Tbilisi (capital of the country Georgia, the likely distractor page) is a failure."
+
+  - id: rn_02
+    category: retrieval_noise_or_distractor
+    difficulty: hard
+    question: "The bird called a turkey — what part of the world is it originally native to?"
+    should_search: true
+    expected_pages: ["Wild turkey"]
+    required_answer_terms: ["North America"]
+    forbidden_terms: []
+    expected_behavior: "Disambiguate to the bird (not the country Turkey) and answer North America / the Americas."
+    behavior_focus: "distractor disambiguation"
+    grading_notes: "Correct iff the answer says the bird is native to North America (the Americas). An answer about the country Turkey is a failure."

@@ -17,6 +17,11 @@ load_dotenv()  # no-op if there is no .env file
 MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5")
 MAX_TOKENS = int(os.environ.get("ANTHROPIC_MAX_TOKENS", "1024"))
 
+# The judge is a separate role from the answering agent: a stronger, independent
+# evaluator (a small model grading itself is biased and weaker at nuanced calls).
+# Override with ANTHROPIC_JUDGE_MODEL.
+JUDGE_MODEL = os.environ.get("ANTHROPIC_JUDGE_MODEL", "claude-opus-4-8")
+
 # Temperature is optional and only sent to the API when explicitly set.
 # The default model (claude-opus-4-8, and the 4.7 / Fable families) rejects
 # `temperature` with a 400 error, so leaving this unset keeps the default path

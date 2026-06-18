@@ -3,9 +3,12 @@
     python -m src.app "Who wrote The Structure of Scientific Revolutions?"
     python -m src.app --demo
     python -m src.app --verbose "..."   # also show the search queries
+
+Each run writes trace JSON under artifacts/runs/<run_id>/.
 """
 
 import argparse
+import os
 import sys
 
 import anthropic
@@ -14,6 +17,7 @@ from rich.markdown import Markdown
 from rich.markup import escape
 from rich.panel import Panel
 
+from . import config, prompts, trace_store, wikipedia_tool
 from .agent import answer_question
 
 DEMO_QUESTIONS = [
@@ -56,7 +60,11 @@ def _render(record: dict, verbose: bool) -> None:
     if verbose and record["tool_calls"]:
         console.print("[dim]searches:[/]")
         for i, call in enumerate(record["tool_calls"], 1):
-            console.print(f"  [dim]{i}.[/] {escape(repr(call['query']))}")
+            query = call["input"].get("query")
+            console.print(f"  [dim]{i}.[/] {escape(repr(query))}")
+
+    if record["error"]:
+        console.print(f"[red]Error:[/] {escape(record['error'])}")
 
     answer = record["answer"] or "*(no answer)*"
     console.print(
@@ -89,19 +97,55 @@ def main(argv=None) -> int:
         parser.print_help()
         return 0
 
+    # Fail fast on a missing key, before creating an empty run directory.
     try:
-        for i, question in enumerate(questions):
-            if i:
-                console.rule(style="dim")
-            _render(answer_question(question), args.verbose)
-    except RuntimeError as e:  # missing API key
+        config.get_api_key()
+    except RuntimeError as e:
         console.print(f"[red]Error:[/] {escape(str(e))}")
         return 1
-    except anthropic.APIError as e:  # network / API failure
-        console.print(f"[red]Claude API error:[/] {escape(str(e))}")
-        return 1
 
-    return 0
+    run_id = trace_store.start_run()
+    trace_files = []
+    exit_code = 0
+
+    for i, question in enumerate(questions):
+        if i:
+            console.rule(style="dim")
+        try:
+            record = answer_question(question)
+        except Exception as e:  # keep the CLI from dumping a traceback
+            console.print(f"[red]Error answering this question:[/] {escape(str(e))}")
+            record = {
+                "question": question,
+                "model": config.MODEL,
+                "answer": "",
+                "search_used": False,
+                "tool_calls": [],
+                "usage": {"input_tokens": 0, "output_tokens": 0},
+                "latency_s": 0.0,
+                "error": f"{type(e).__name__}: {e}",
+            }
+        _render(record, args.verbose)
+        path = trace_store.save_trace(run_id, record)
+        trace_files.append(os.path.basename(path))
+        if record["error"]:
+            exit_code = 1
+
+    trace_store.write_manifest(
+        run_id,
+        {
+            "run_id": run_id,
+            "model": config.MODEL,
+            "prompt_version": prompts.PROMPT_VERSION,
+            "tool_schema_version": wikipedia_tool.TOOL_SCHEMA_VERSION,
+            "num_questions": len(questions),
+            "traces": trace_files,
+        },
+    )
+
+    console.rule(style="dim")
+    console.print(f"[dim]traces saved to[/] {trace_store.run_dir(run_id)}")
+    return exit_code
 
 
 if __name__ == "__main__":
