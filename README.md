@@ -98,7 +98,7 @@ Claude.
 ## Metrics
 
 **Deterministic (always, free)** — per case and aggregated with a Wilson 95% CI:
-- `search_decision_correct` — searched iff it should have
+- `search_decision_correct` — searched if it should have
 - `expected_page_hit` — the necessary Wikipedia pages were retrieved (supports
   require-all OR-groups for comparisons/multi-hop and a min-distinct threshold for
   ambiguous entities)
@@ -136,9 +136,11 @@ narrative on top.
   or human-agreement study yet).
 - **Wikipedia rate limits** can slow eval runs; the tool throttles and retries
   with backoff, and `run_health` flags runs degraded by 429s.
-- **Residual grounding gap.** Even with the v1 prompt, ~20% of factual claims
-  (n=50 judge) aren't supported by retrieved evidence — the deliberately small
-  model still leans on memory at times. Further prompt iteration is future work.
+- **Residual grounding gap.** The v2 prompt cut the unsupported-claim rate from
+  ~20% to ~15% (n=50 judge), but the deliberately small model still leans on
+  memory at times. v2 traded a small (non-significant) dip in deterministic pass
+  for that grounding gain; closing the gap further without losing retrieval
+  coverage is future work.
 
 ## Project layout
 
@@ -146,7 +148,7 @@ narrative on top.
   (`wikipedia_tool.py`), trace store, config
 - `evals/` — cases (`cases.yaml`), runner, graders, stats, comparison
 - `tests/` — unit tests (`pytest`)
-- `docs/` — design, rationale, steering log (AI transcripts are submitted
-  separately; see `ai_transcripts/`)
+- `docs/` — design, rationale, steering log (AI development transcripts are
+  submitted separately, not committed)
 - `artifacts/` — generated run outputs (gitignored); a sample run is provided
   separately

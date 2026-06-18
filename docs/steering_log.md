@@ -67,9 +67,26 @@ write to `artifacts/comparisons/` (gitignored).
 
 Decision: keep generated eval artifacts and raw AI transcript exports out of the
 GitHub repo. They are submitted separately when needed, while the repo keeps the
-code, eval cases, docs, and a pointer in `docs/ai_transcripts/README.md`.
+code, eval cases, and docs. The transcripts are rendered from the Claude Code
+session logs; the sample run is packaged with the submission rather than committed.
 
 Also tightened the deterministic rubric after review: comparison and selected
 multi-hop cases can require all necessary page groups, ambiguous-entity cases
 can require multiple distinct pages, and cited sources must correspond to pages
 actually retrieved by the local Wikipedia tool.
+
+## 2026-06-17 — Prompt v2: grounding over headline pass rate
+
+Added a v2 system prompt with two targeted rules: re-search with the exact
+article name when results are list/disambiguation pages, and answer tersely from
+the retrieved extracts only (no padding with unsupported dates/numbers/names).
+Re-ran all 50 cases and judged them.
+
+Decision: keep v2 as the default despite a lower deterministic pass rate
+(78% → 72%), because the v1 → v2 A/B shows the change did what it targeted —
+unsupported-claim rate 20.4% → 14.9%, grounded-correct 70% → 78% — and the
+deterministic dip is statistically non-significant (McNemar p=0.375, 1 improved /
+4 regressed, overlapping CIs). Grounding is the project's headline concern, so
+trading a within-noise retrieval regression for a real grounding gain is the
+right call. The list-page re-search rule did *not* lift `expected_page_hit`;
+that's logged as future tool-side work, not a prompt fix.

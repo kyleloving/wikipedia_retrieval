@@ -54,6 +54,13 @@ The most important prompt choice is the grounding rule: factual claims should be
 based on retrieved evidence, not memory. I then evaluated whether that actually
 happened instead of assuming the instruction worked.
 
+**v2** keeps everything in v1 and adds two targeted rules, each aimed at a failure
+mode the v1 evals exposed: (1) if the top results are list/index/disambiguation
+pages, re-search with the exact article name; (2) answer tersely from the
+retrieved extracts only, without padding in dates/numbers/names that aren't in the
+evidence. v2 is the current default; the v1→v2 A/B below is how I checked whether
+those rules actually moved the metrics they targeted.
+
 ## Eval Design
 
 The eval suite has 50 cases across 10 behavior categories: factual lookup,
@@ -88,36 +95,40 @@ behavior.
 
 ## Results And What I Learned
 
-On the current v1 prompt run (`20260617T233035Z`, n=50), graded under the
-tightened rubric (require-all page groups, min-distinct senses, cited-source
-grounding, and `insufficient_evidence` graded `should_search: true`), the
-deterministic pass rate was **39/50 = 78%** with a Wilson 95% CI of **65-87%**,
+On the current v2 prompt run (`20260618T004724Z`, n=50; this is the sample run),
+graded under the tightened rubric (require-all page groups, min-distinct senses,
+cited-source grounding, and `insufficient_evidence` graded `should_search: true`),
+the deterministic pass rate was **36/50 = 72%** with a Wilson 95% CI of **58-82%**,
 and run health was clean with **0 tool errors**.
 
 Selected deterministic results:
 
-- `search_decision_correct`: 89.4% (42/47 applicable)
-- `expected_page_hit`: 76.2%
-- `cited_sources_retrieved`: 35/35 (no fabricated citations)
+- `search_decision_correct`: 85.1% (40/47 applicable)
+- `expected_page_hit`: 69.0%
+- `cited_sources_retrieved`: 34/34 (no fabricated citations)
 - `answer_format_valid`: 96%
 - `declined_when_unanswerable`: 10/10
 - `required_terms_present`: 100%
 
-The judge pass across all 50 cases showed a more nuanced picture:
+The judge pass across all 50 cases:
 
-- answer correctness mean: 1.90 / 2
-- groundedness mean: 1.68 / 2
-- grounded-correct: 35/50 = 70%
-- unsupported-claim rate: 57/280 = 20.4%
+- answer correctness mean: 1.92 / 2
+- groundedness mean: 1.74 / 2
+- grounded-correct: 39/50 = 78%
+- unsupported-claim rate: 34/228 = 14.9%
 
-The main lesson is that the system often gets the right answer, but still
-sometimes writes extra factual details that were not supported by the retrieved
-Wikipedia evidence. That is the key remaining gap.
-
-The v1 system prompt improved the no-system-prompt baseline, especially answer
-formatting, refusal behavior, and search decisions. The bigger win from the eval
-work was not just a higher score; it exposed the difference between correct
-answers and grounded answers.
+**v1 → v2 A/B (paired, same 50 cases).** v2's two new rules targeted grounding,
+and that is where it moved: grounded-correct **70% → 78%**, unsupported-claim rate
+**20.4% → 14.9%**, judge groundedness **1.68 → 1.74**, ambiguity_handling
+**1.0 → 1.33**. The cost was a small, **statistically non-significant** dip in
+deterministic pass (**78% → 72%**; 1 case improved, 4 regressed, McNemar p=0.375,
+overlapping CIs), concentrated in `expected_page_hit` (76% → 69%) and
+`search_decision_correct` (89% → 85%) — the terseness rule appears to make the
+agent search slightly less aggressively. The list-page re-search rule did **not**
+lift `expected_page_hit`. So v2 is an honest trade: a real reduction in
+unsupported claims (the project's headline gap) against a within-noise retrieval
+regression — not a uniform win. The bigger lesson from the eval work is that it
+exposes exactly this distinction between *correct* answers and *grounded* ones.
 
 ## Failure Modes
 
@@ -149,17 +160,24 @@ The project was built incrementally:
 7. Rate-limit handling after an early contaminated run.
 8. v1 system prompt and stricter grading for comparisons, ambiguity, refusals,
    and cited sources.
+9. v2 prompt (list-page re-search + terse extract-only answering), measured
+   against v1 with the paired A/B above.
 
 The most useful iteration was adding grounding-focused evaluation. It changed
 the question from "does the answer look right?" to "was the answer supported by
-the evidence the system actually retrieved?"
+the evidence the system actually retrieved?" — and it let the v1 → v2 change be
+judged on the axis it targeted (grounding) rather than on the headline pass rate
+alone.
 
 ## What I Would Do Next
 
-- Tighten the prompt further to reduce unsupported factual add-ons.
+- Recover v2's small retrieval regression without giving back its grounding gain
+  (the terseness rule made the agent search slightly less aggressively).
 - Add span-level or extract-level grounding checks instead of only source-title
   checks.
-- Improve retrieval for list/meta-page misses and descriptive paraphrases.
+- Improve retrieval for list/meta-page misses — the v2 re-search rule did not move
+  `expected_page_hit`, so this needs a different approach (e.g. a tool-side filter
+  that demotes list/disambiguation pages).
 - Validate the judge with a small human-labeled sample and test-retest runs.
 - Add more cases, especially for ambiguity and adversarial pressure.
 
